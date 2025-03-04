@@ -1,8 +1,13 @@
 ﻿namespace eShop.Ordering.API.Application.Queries;
 
+using System.Diagnostics;
+
 public class OrderQueries(OrderingContext context)
     : IOrderQueries
 {
+
+    private static readonly ActivitySource ActivitySource = new("Ordering.API");
+
     public async Task<Order> GetOrderAsync(int id)
     {
         var order = await context.Orders
@@ -34,9 +39,18 @@ public class OrderQueries(OrderingContext context)
         };
     }
 
+    // USEFUL TO SEE MY ORDERS
+    // this method call database context to get the orders from the user
+    // search for the orders that have the same user id as the one passed as parameter
+    // and return them to the user
     public async Task<IEnumerable<OrderSummary>> GetOrdersFromUserAsync(string userId)
     {
-        return await context.Orders
+        using var activity = ActivitySource.StartActivity("DatabaseQuery.GetOrdersFromUser");
+
+        activity?.SetTag("db.statement", "SELECT * FROM Orders WHERE BuyerId = @userId");
+        activity?.SetTag("db.user", userId);
+
+        var orders = await context.Orders
             .Where(o => o.Buyer.IdentityGuid == userId)  
             .Select(o => new OrderSummary
             {
@@ -46,6 +60,10 @@ public class OrderQueries(OrderingContext context)
                 Total =(double) o.OrderItems.Sum(oi => oi.UnitPrice* oi.Units)
             })
             .ToListAsync();
+
+        activity?.SetTag("db.rows_returned", orders.Count());
+
+        return orders;
     } 
     
     public async Task<IEnumerable<CardType>> GetCardTypesAsync() => 

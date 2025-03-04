@@ -1,9 +1,12 @@
 ﻿using Microsoft.AspNetCore.Http.HttpResults;
 using CardType = eShop.Ordering.API.Application.Queries.CardType;
 using Order = eShop.Ordering.API.Application.Queries.Order;
+using System.Diagnostics;
 
 public static class OrdersApi
 {
+    private static readonly ActivitySource ActivitySource = new("Ordering.API");
+
     public static RouteGroupBuilder MapOrdersApiV1(this IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("api/orders").HasApiVersion(1.0);
@@ -11,6 +14,7 @@ public static class OrdersApi
         api.MapPut("/cancel", CancelOrderAsync);
         api.MapPut("/ship", ShipOrderAsync);
         api.MapGet("{orderId:int}", GetOrderAsync);
+        // endpoint to get orders by user - USEFUL TO SEE MY ORDERS
         api.MapGet("/", GetOrdersByUserAsync);
         api.MapGet("/cardtypes", GetCardTypesAsync);
         api.MapPost("/draft", CreateOrderDraftAsync);
@@ -90,10 +94,19 @@ public static class OrdersApi
         }
     }
 
+    // USEFUL TO SEE MY ORDERS
+    // this method is used to get orders by user; contains the user id and calls the GetOrdersFromUserAsync method
+    // from the Queries class to get the orders and return them to the user
     public static async Task<Ok<IEnumerable<OrderSummary>>> GetOrdersByUserAsync([AsParameters] OrderServices services)
     {
+        using var activity = ActivitySource.StartActivity("GetOrdersByUser");
+
         var userId = services.IdentityService.GetUserIdentity();
+        activity?.SetTag("user.id", userId);  // Add user id to the activity so it can be traced
+
         var orders = await services.Queries.GetOrdersFromUserAsync(userId);
+
+        activity?.SetTag("order.count", orders.Count());
         return TypedResults.Ok(orders);
     }
 
