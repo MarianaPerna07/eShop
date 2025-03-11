@@ -2,6 +2,8 @@
 
 using System.Diagnostics;
 
+using eShop.Ordering.API.Infrastructure.Metrics;
+
 public class OrderQueries(OrderingContext context)
     : IOrderQueries
 {
@@ -50,6 +52,9 @@ public class OrderQueries(OrderingContext context)
         activity?.SetTag("db.statement", "SELECT * FROM Orders WHERE BuyerId = @userId");
         activity?.SetTag("db.user", userId);
 
+        // Start a stopwatch to measure the latency of the query
+        var stopwatch = Stopwatch.StartNew();
+
         var orders = await context.Orders
             .Where(o => o.Buyer.IdentityGuid == userId)  
             .Select(o => new OrderSummary
@@ -60,6 +65,10 @@ public class OrderQueries(OrderingContext context)
                 Total =(double) o.OrderItems.Sum(oi => oi.UnitPrice* oi.Units)
             })
             .ToListAsync();
+
+        stopwatch.Stop();
+        // Record the latency of the query
+        OrderMetrics.OrderQueryLatency.Record(stopwatch.Elapsed.TotalMilliseconds, new KeyValuePair<string, object>("userId", userId));
 
         activity?.SetTag("db.rows_returned", orders.Count());
 

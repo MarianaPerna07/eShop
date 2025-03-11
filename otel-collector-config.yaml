@@ -8,15 +8,15 @@ receivers:
 
 exporters:
   otlp:
-    endpoint: "jaeger:4317"  # Use OTLP gRPC port
+    endpoint: "jaeger:4317"  
     tls:
       insecure: true
 
   prometheus:
-    endpoint: "0.0.0.0:8889"  # Exposição de métricas para Prometheus
+    endpoint: ":8889"
 
 processors:
-  batch:  # Melhora a performance e reduz a carga no sistema
+  batch: 
 
 extensions:
   health_check:
